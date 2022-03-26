@@ -1,7 +1,7 @@
 /*
   app.js
   mohan chinnappan
-    
+
   Ref: https://github.com/ccoenraets/salesforce-canvas-demo
 
   */
@@ -22,10 +22,45 @@ app.set("view engine", "ejs");
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ entended: true }));
 // just a welcome page
-app.get("/", function(req, res) {
-  res.render("welcome");
-});
+// app.get("/", function(req, res) {
+//   res.render("welcome");
+// });
 
+
+app.get("/", function(req, res) {
+  console.log(req.body.signed_request);
+  try{
+    var signedRequest = decode(req.body.signed_request, consumerSecret),
+      context = signedRequest.context,
+      oauthToken = signedRequest.client.oauthToken,
+      instanceUrl = signedRequest.client.instanceUrl;
+    const query = "SELECT Id, FirstName, LastName, Phone, Email FROM Contact";
+
+    contactRequest = {
+      url: instanceUrl + "/services/data/v45.0/query?q=" + query,
+      headers: {
+        Authorization: "OAuth " + oauthToken
+      }
+    };
+    console.log({contactRequest})
+
+    request(contactRequest, function(err, response, body) {
+      const contactRecords = JSON.parse(body).records;
+      console.log({contactRecords})
+      var payload = {
+        instanceUrl: instanceUrl,
+        headers: {
+          Authorization: "OAuth " + oauthToken
+        },
+        context: context,
+        contacts: contactRecords
+      };
+      res.send('Contacts:'+JSON.stringify(contactRecords));
+    });
+  }catch(e){
+    res.send('error : '+e.message);
+  }
+});
 // SF call POST us on this URI with signed request
 app.post("/signedrequest", function(req, res) {
   console.log(req.body.signed_request);
@@ -42,10 +77,11 @@ app.post("/signedrequest", function(req, res) {
       Authorization: "OAuth " + oauthToken
     }
   };
+  console.log({contactRequest})
 
   request(contactRequest, function(err, response, body) {
     const contactRecords = JSON.parse(body).records;
-
+    console.log({contactRecords})
     var payload = {
       instanceUrl: instanceUrl,
       headers: {
@@ -59,7 +95,7 @@ app.post("/signedrequest", function(req, res) {
 });
 
 
-// POST to toolbar URI - make this uri as Canvas App URL in the connected app (AccountPositionApp2) setting 
+// POST to toolbar URI - make this uri as Canvas App URL in the connected app (AccountPositionApp2) setting
 app.post("/myevents", function(req, res) {
   var signedRequest = decode(req.body.signed_request, consumerSecret);
   res.render("myevents", {signedRequest: signedRequest});
